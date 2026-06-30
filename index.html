@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>765 kV Transmission Corridor — Dynamic Line Rating 3D Model</title>
+  </head>
+  <body>
+    <div id="app">
+      <canvas id="scene"></canvas>
+
+      <div id="boot-overlay">
+        <div class="boot-box">
+          <div class="boot-title">765&nbsp;kV TRANSMISSION CORRIDOR</div>
+          <div class="boot-sub">Dynamic Line Rating Simulator — loading scene…</div>
+        </div>
+      </div>
+
+      <header id="topbar">
+        <div class="brand">
+          <span class="brand-dot"></span>
+          <div>
+            <div class="brand-title">765&nbsp;kV TWIN-CIRCUIT CORRIDOR</div>
+            <div class="brand-sub">Dynamic Line Rating (DLR) — 3D Real-Time Model</div>
+          </div>
+        </div>
+        <div class="topbar-actions">
+          <button id="btn-toggle-panels" class="chip" title="Show/hide panels">Panels</button>
+          <button id="btn-help" class="chip" title="About this model">?</button>
+        </div>
+      </header>
+
+      <!-- LEFT: Weather & environment controls -->
+      <aside id="panel-weather" class="panel panel-left">
+        <div class="panel-head">Weather &amp; Environment</div>
+
+        <div class="field">
+          <label>Preset</label>
+          <select id="preset-select">
+            <option value="clear-mild">Clear, mild breeze</option>
+            <option value="hot-still">Hot, still summer afternoon</option>
+            <option value="windy-cool">Cool &amp; windy (high rating)</option>
+            <option value="overcast">Overcast, light wind</option>
+            <option value="storm">Storm / heavy wind &amp; rain</option>
+            <option value="winter-night">Calm winter night</option>
+            <option value="custom">Custom</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label>Time of day <span class="val" id="val-time">12:00</span></label>
+          <input id="time-slider" type="range" min="0" max="24" step="0.1" value="12" />
+        </div>
+
+        <div class="field">
+          <label>Ambient temperature <span class="val" id="val-temp">25 °C</span></label>
+          <input id="temp-slider" type="range" min="-20" max="45" step="1" value="25" />
+        </div>
+
+        <div class="field">
+          <label>Wind speed <span class="val" id="val-wind">2.0 m/s</span></label>
+          <input id="wind-slider" type="range" min="0" max="20" step="0.1" value="2" />
+        </div>
+
+        <div class="field">
+          <label>Wind angle to line <span class="val" id="val-windangle">45°</span></label>
+          <input id="windangle-slider" type="range" min="0" max="90" step="1" value="45" />
+          <div class="hint">0° = blowing along the line (poor cooling) · 90° = crossing the line (best cooling)</div>
+        </div>
+
+        <div class="field">
+          <label>Solar irradiance <span class="val" id="val-solar">850 W/m²</span></label>
+          <input id="solar-slider" type="range" min="0" max="1100" step="10" value="850" />
+        </div>
+
+        <div class="field">
+          <label>Precipitation</label>
+          <select id="precip-select">
+            <option value="none">None</option>
+            <option value="rain">Rain</option>
+            <option value="snow">Snow</option>
+          </select>
+        </div>
+
+        <div class="field checkbox-field">
+          <label class="checkbox-label">
+            <input id="clouds-toggle" type="checkbox" checked />
+            Show clouds
+          </label>
+        </div>
+
+        <div class="panel-head sub">Wind direction</div>
+        <div id="compass" class="compass">
+          <svg viewBox="0 0 100 100">
+            <circle cx="50" cy="50" r="46" class="compass-ring" />
+            <line x1="50" y1="50" x2="50" y2="8" class="compass-line-line" />
+            <g id="compass-needle">
+              <line x1="50" y1="50" x2="50" y2="14" class="compass-needle-line" />
+              <circle cx="50" cy="14" r="4" class="compass-needle-head" />
+            </g>
+            <text x="50" y="6" class="compass-label">LINE</text>
+          </svg>
+        </div>
+      </aside>
+
+      <!-- RIGHT: Power flow controls + line ratings -->
+      <aside id="panel-power" class="panel panel-right">
+        <div class="panel-head">Power Flow Setpoints</div>
+
+        <div class="circuit-block" data-circuit="1">
+          <div class="circuit-title"><span class="swatch swatch-1"></span>Circuit&nbsp;1 — Line&nbsp;A↔B</div>
+          <div class="field">
+            <label>Scheduled flow <span class="val" id="val-flow1">1800 MW</span></label>
+            <input id="flow1-slider" type="range" min="-3500" max="3500" step="10" value="1800" />
+            <div class="hint">Positive = A→B, Negative = B→A</div>
+          </div>
+        </div>
+
+        <div class="circuit-block" data-circuit="2">
+          <div class="circuit-title"><span class="swatch swatch-2"></span>Circuit&nbsp;2 — Line&nbsp;A↔B</div>
+          <div class="field">
+            <label>Scheduled flow <span class="val" id="val-flow2">-900 MW</span></label>
+            <input id="flow2-slider" type="range" min="-3500" max="3500" step="10" value="-900" />
+            <div class="hint">Positive = A→B, Negative = B→A</div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Conductor temp limit <span class="val" id="val-tmax">100 °C</span></label>
+          <input id="tmax-slider" type="range" min="75" max="125" step="1" value="100" />
+          <div class="hint">Max continuous conductor temperature (ACSR rating basis)</div>
+        </div>
+
+        <div class="panel-head sub">Conductor</div>
+        <div class="info-grid">
+          <div><span>Type</span><b>4×ACSR "Bittern" bundle / phase</b></div>
+          <div><span>Sub-conductor dia.</span><b>34.3 mm</b></div>
+          <div><span>Span length</span><b>350 m × 2</b></div>
+          <div><span>R(25°C) / R(75°C)</span><b>0.0700 / 0.0870 Ω/km</b></div>
+        </div>
+      </aside>
+
+      <!-- BOTTOM: Live readouts for both circuits -->
+      <section id="panel-readouts" class="panel panel-bottom">
+        <div class="readout-card" data-circuit="1">
+          <div class="readout-title"><span class="swatch swatch-1"></span>Circuit 1</div>
+          <div class="readout-grid">
+            <div class="ro"><span>Ampacity limit</span><b id="ro1-amps">– A</b></div>
+            <div class="ro"><span>MVA limit</span><b id="ro1-mva">– MVA</b></div>
+            <div class="ro"><span>Loading</span><b id="ro1-load">– %</b></div>
+            <div class="ro"><span>Conductor temp</span><b id="ro1-temp">– °C</b></div>
+            <div class="ro"><span>Midspan sag</span><b id="ro1-sag">– m</b></div>
+            <div class="ro"><span>Ground clearance</span><b id="ro1-clear">– m</b></div>
+          </div>
+          <div class="status-bar"><div class="status-fill" id="ro1-fill"></div></div>
+          <div class="status-label" id="ro1-status">NORMAL</div>
+        </div>
+
+        <div class="readout-card" data-circuit="2">
+          <div class="readout-title"><span class="swatch swatch-2"></span>Circuit 2</div>
+          <div class="readout-grid">
+            <div class="ro"><span>Ampacity limit</span><b id="ro2-amps">– A</b></div>
+            <div class="ro"><span>MVA limit</span><b id="ro2-mva">– MVA</b></div>
+            <div class="ro"><span>Loading</span><b id="ro2-load">– %</b></div>
+            <div class="ro"><span>Conductor temp</span><b id="ro2-temp">– °C</b></div>
+            <div class="ro"><span>Midspan sag</span><b id="ro2-sag">– m</b></div>
+            <div class="ro"><span>Ground clearance</span><b id="ro2-clear">– m</b></div>
+          </div>
+          <div class="status-bar"><div class="status-fill" id="ro2-fill"></div></div>
+          <div class="status-label" id="ro2-status">NORMAL</div>
+        </div>
+
+        <div class="readout-card corridor-summary">
+          <div class="readout-title">Corridor totals</div>
+          <div class="readout-grid">
+            <div class="ro"><span>Total scheduled flow</span><b id="ro-total-flow">– MW</b></div>
+            <div class="ro"><span>Total thermal limit</span><b id="ro-total-limit">– MVA</b></div>
+            <div class="ro"><span>Static (worst-case) rating</span><b id="ro-static">– MVA</b></div>
+            <div class="ro"><span>DLR headroom vs static</span><b id="ro-headroom">– %</b></div>
+          </div>
+        </div>
+      </section>
+
+      <div id="orbit-hint" class="orbit-hint">Drag to orbit · Scroll to zoom · Right-drag to pan</div>
+
+      <div id="help-modal" class="modal hidden">
+        <div class="modal-card">
+          <div class="modal-head">
+            <span>About this model</span>
+            <button id="btn-help-close" class="chip">Close</button>
+          </div>
+          <div class="modal-body">
+            <p>
+              This is an interactive 3D model of a 765&nbsp;kV transmission corridor with
+              <b>two parallel single-circuit lines</b> connecting Substation A and Substation B,
+              each carrying a scheduled power flow that you control.
+            </p>
+            <p>
+              Each line's <b>thermal ampacity limit</b> is computed live from the conductor heat
+              balance used in <b>IEEE Std 738</b> (Calculating the Current-Temperature Relationship of
+              Bare Overhead Conductors):
+            </p>
+            <p class="formula">I² · R(T<sub>c</sub>) + q<sub>s</sub> = q<sub>c</sub> + q<sub>r</sub></p>
+            <ul>
+              <li><b>q<sub>c</sub></b> — convective cooling (depends on wind speed &amp; angle to the line)</li>
+              <li><b>q<sub>r</sub></b> — radiative cooling (depends on conductor &amp; ambient temperature)</li>
+              <li><b>q<sub>s</sub></b> — solar heating (depends on irradiance)</li>
+            </ul>
+            <p>
+              The simulator solves for the maximum current that keeps the conductor at its rated
+              maximum temperature given current weather — this is exactly what a real-time
+              <b>Dynamic Line Rating (DLR)</b> system does, and it is why a line's safe loading can rise
+              on a cold, windy day and fall sharply on a hot, still, sunny one.
+            </p>
+            <p>
+              Conductor temperature also drives a simplified <b>thermal-sag model</b>: hotter
+              conductors elongate and sag more, reducing ground clearance — another real-world reason
+              utilities limit loading in hot weather.
+            </p>
+            <p class="disclaimer">
+              Conductor and tower parameters are representative, illustrative values for a 4-bundle
+              ACSR 765&nbsp;kV line. This tool is for education/visualization, not a certified
+              engineering rating study.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
