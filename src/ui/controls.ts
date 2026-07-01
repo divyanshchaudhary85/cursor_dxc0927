@@ -71,6 +71,20 @@ export function setupControls(scene: TransmissionScene): void {
     input.style.background = `linear-gradient(to right, var(--accent) ${pct}%, rgba(255,255,255,0.1) ${pct}%)`;
   }
 
+  const weatherChip = el<HTMLDivElement>("weather-chip");
+  const compassWindSpeed = el<SVGTextElement>("compass-wind-speed");
+
+  function refreshWeatherSummary(): void {
+    const w = state.weather;
+    const skyWord =
+      w.precipitation === "rain" ? "Rain" :
+      w.precipitation === "snow" ? "Snow" :
+      w.solarIrradiance > 600 ? "Sunny" :
+      w.solarIrradiance > 250 ? "Partly cloudy" : "Overcast";
+    weatherChip.textContent = `${fmt(w.ambientTemp)} °C · ${fmt(w.windSpeed, 1)} m/s · ${skyWord}`;
+    compassWindSpeed.textContent = fmt(w.windSpeed, 1);
+  }
+
   function syncLabelsFromState(): void {
     timeSlider.value = String(state.weather.timeOfDay);
     tempSlider.value = String(state.weather.ambientTemp);
@@ -96,6 +110,8 @@ export function setupControls(scene: TransmissionScene): void {
     for (const s of [timeSlider, tempSlider, windSlider, windAngleSlider, solarSlider, flow1Slider, flow2Slider, tmaxSlider]) {
       refreshSliderTrack(s);
     }
+
+    refreshWeatherSummary();
   }
 
   let pendingUpdate = false;
@@ -123,6 +139,7 @@ export function setupControls(scene: TransmissionScene): void {
     state.weather.ambientTemp = Number(tempSlider.value);
     valTemp.textContent = `${fmt(state.weather.ambientTemp)} °C`;
     refreshSliderTrack(tempSlider);
+    refreshWeatherSummary();
     markCustomPreset();
     scheduleUpdate();
   });
@@ -131,6 +148,7 @@ export function setupControls(scene: TransmissionScene): void {
     state.weather.windSpeed = Number(windSlider.value);
     valWind.textContent = `${fmt(state.weather.windSpeed, 1)} m/s`;
     refreshSliderTrack(windSlider);
+    refreshWeatherSummary();
     markCustomPreset();
     scheduleUpdate();
   });
@@ -148,12 +166,14 @@ export function setupControls(scene: TransmissionScene): void {
     state.weather.solarIrradiance = Number(solarSlider.value);
     valSolar.textContent = `${fmt(state.weather.solarIrradiance)} W/m²`;
     refreshSliderTrack(solarSlider);
+    refreshWeatherSummary();
     markCustomPreset();
     scheduleUpdate();
   });
 
   precipSelect.addEventListener("change", () => {
     state.weather.precipitation = precipSelect.value as PrecipKind;
+    refreshWeatherSummary();
     markCustomPreset();
   });
 
@@ -192,7 +212,6 @@ export function setupControls(scene: TransmissionScene): void {
     state.weather.solarIrradiance = preset.solarIrradiance;
     state.weather.precipitation = preset.precipitation;
     syncLabelsFromState();
-    presetSelect.value = presetSelect.value; // keep selection (not reset to custom)
     scene.runPhysicsUpdate();
   });
 
@@ -213,20 +232,17 @@ export function setupControls(scene: TransmissionScene): void {
     let totalFlow = 0;
     let totalLimit = 0;
 
+    const GAUGE_CIRCUMFERENCE = 213.6; // 2 * pi * r(34), must match the SVG
+
     readouts.forEach((r, idx) => {
       const id = ids[idx];
       el<HTMLElement>(`ro${id}-amps`).textContent = `${fmt(r.ampacityTotalA)} A`;
       el<HTMLElement>(`ro${id}-mva`).textContent = `${fmt(r.mvaLimit)} MVA`;
-      el<HTMLElement>(`ro${id}-load`).textContent = `${fmt(r.loadingFraction * 100)} %`;
+      el<HTMLElement>(`ro${id}-load`).textContent = `${fmt(r.loadingFraction * 100)}%`;
       el<HTMLElement>(`ro${id}-temp`).textContent = `${fmt(r.conductorTempC, 1)} °C`;
       el<HTMLElement>(`ro${id}-sag`).textContent = `${fmt(r.sagM, 1)} m`;
       el<HTMLElement>(`ro${id}-clear`).textContent = `${fmt(r.clearanceM, 1)} m`;
 
-      const fill = el<HTMLElement>(`ro${id}-fill`);
-      const pct = Math.min(r.loadingFraction * 100, 130);
-      fill.style.width = `${Math.min(pct, 100)}%`;
-
-      const statusEl = el<HTMLElement>(`ro${id}-status`);
       const colors: Record<LineReadout["status"], string> = {
         normal: "var(--ok)",
         caution: "var(--warn)",
@@ -234,19 +250,35 @@ export function setupControls(scene: TransmissionScene): void {
       };
       const labels: Record<LineReadout["status"], string> = {
         normal: "NORMAL",
-        caution: "CAUTION — APPROACHING LIMIT",
-        overload: "OVERLOAD — EXCEEDS DLR LIMIT",
+        caution: "CAUTION — NEAR LIMIT",
+        overload: "OVERLOAD — OVER DLR LIMIT",
       };
+
+      const loadClamped = Math.min(r.loadingFraction, 1);
+      const gauge = el<SVGCircleElement>(`ro${id}-gauge`);
+      gauge.style.strokeDashoffset = String(GAUGE_CIRCUMFERENCE * (1 - loadClamped));
+      gauge.style.stroke = colors[r.status];
+
+      const fill = el<HTMLElement>(`ro${id}-fill`);
+      fill.style.width = `${Math.min(r.loadingFraction * 100, 100)}%`;
+      fill.style.background = colors[r.status];
+
+      const statusEl = el<HTMLElement>(`ro${id}-status`);
       statusEl.textContent = labels[r.status];
       statusEl.style.color = colors[r.status];
-      fill.style.background = colors[r.status];
+
+      const card = document.querySelector<HTMLElement>(`.readout-card[data-circuit="${id}"]`);
+      if (card) {
+        card.classList.toggle("is-caution", r.status === "caution");
+        card.classList.toggle("is-overload", r.status === "overload");
+      }
 
       totalFlow += Math.abs(state.power.flowMW[idx]);
       totalLimit += r.mvaLimit;
     });
 
-    el<HTMLElement>("ro-total-flow").textContent = `${fmt(totalFlow)} MW`;
-    el<HTMLElement>("ro-total-limit").textContent = `${fmt(totalLimit)} MVA`;
+    el<HTMLElement>("ro-total-flow").textContent = fmt(totalFlow);
+    el<HTMLElement>("ro-total-limit").textContent = fmt(totalLimit);
 
     // Static "worst case" rating reference: a fixed conservative seasonal rating
     // (hot, still, full sun), the kind of single number many utilities used

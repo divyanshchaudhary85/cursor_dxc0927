@@ -12,6 +12,7 @@
 
       <div id="boot-overlay">
         <div class="boot-box">
+          <div class="boot-spinner"></div>
           <div class="boot-title">765&nbsp;kV TRANSMISSION CORRIDOR</div>
           <div class="boot-sub">Dynamic Line Rating Simulator — loading scene…</div>
         </div>
@@ -26,6 +27,7 @@
           </div>
         </div>
         <div class="topbar-actions">
+          <div id="weather-chip" class="chip chip-static" title="Current simulated conditions">25 °C · 2.0 m/s · Clear</div>
           <button id="btn-toggle-panels" class="chip" title="Show/hide panels">Panels</button>
           <button id="btn-help" class="chip" title="About this model">?</button>
         </div>
@@ -90,16 +92,29 @@
           </label>
         </div>
 
-        <div class="panel-head sub">Wind direction</div>
+        <div class="panel-head sub">Wind vs line</div>
         <div id="compass" class="compass">
           <svg viewBox="0 0 100 100">
-            <circle cx="50" cy="50" r="46" class="compass-ring" />
-            <line x1="50" y1="50" x2="50" y2="8" class="compass-line-line" />
-            <g id="compass-needle">
-              <line x1="50" y1="50" x2="50" y2="14" class="compass-needle-line" />
-              <circle cx="50" cy="14" r="4" class="compass-needle-head" />
+            <circle cx="50" cy="50" r="44" class="compass-ring" />
+            <g class="compass-ticks">
+              <line x1="50" y1="6" x2="50" y2="12" />
+              <line x1="94" y1="50" x2="88" y2="50" />
+              <line x1="50" y1="94" x2="50" y2="88" />
+              <line x1="6" y1="50" x2="12" y2="50" />
+              <line x1="81.1" y1="18.9" x2="76.9" y2="23.1" />
+              <line x1="81.1" y1="81.1" x2="76.9" y2="76.9" />
+              <line x1="18.9" y1="81.1" x2="23.1" y2="76.9" />
+              <line x1="18.9" y1="18.9" x2="23.1" y2="23.1" />
             </g>
-            <text x="50" y="6" class="compass-label">LINE</text>
+            <line x1="50" y1="50" x2="50" y2="10" class="compass-line-line" />
+            <g id="compass-needle">
+              <line x1="50" y1="50" x2="50" y2="16" class="compass-needle-line" />
+              <path d="M 50 12 L 46 20 L 54 20 Z" class="compass-needle-head-path" />
+            </g>
+            <circle cx="50" cy="50" r="15" class="compass-hub" />
+            <text x="50" y="48.5" class="compass-wind-val" id="compass-wind-speed">2.0</text>
+            <text x="50" y="57" class="compass-wind-unit">m/s</text>
+            <text x="50" y="4.5" class="compass-label">LINE</text>
           </svg>
         </div>
       </aside>
@@ -144,40 +159,75 @@
       <!-- BOTTOM: Live readouts for both circuits -->
       <section id="panel-readouts" class="panel panel-bottom">
         <div class="readout-card" data-circuit="1">
-          <div class="readout-title"><span class="swatch swatch-1"></span>Circuit 1</div>
-          <div class="readout-grid">
-            <div class="ro"><span>Ampacity limit</span><b id="ro1-amps">– A</b></div>
-            <div class="ro"><span>MVA limit</span><b id="ro1-mva">– MVA</b></div>
-            <div class="ro"><span>Loading</span><b id="ro1-load">– %</b></div>
-            <div class="ro"><span>Conductor temp</span><b id="ro1-temp">– °C</b></div>
-            <div class="ro"><span>Midspan sag</span><b id="ro1-sag">– m</b></div>
-            <div class="ro"><span>Ground clearance</span><b id="ro1-clear">– m</b></div>
+          <div class="readout-main">
+            <div class="gauge">
+              <svg viewBox="0 0 80 80">
+                <circle cx="40" cy="40" r="34" class="gauge-track" />
+                <circle cx="40" cy="40" r="34" class="gauge-arc" id="ro1-gauge" />
+              </svg>
+              <div class="gauge-center">
+                <b id="ro1-load">–</b>
+                <span>load</span>
+              </div>
+            </div>
+            <div class="readout-side">
+              <div class="readout-title"><span class="swatch swatch-1"></span>Circuit 1</div>
+              <div class="status-label" id="ro1-status">NORMAL</div>
+              <div class="status-bar"><div class="status-fill" id="ro1-fill"></div></div>
+            </div>
           </div>
-          <div class="status-bar"><div class="status-fill" id="ro1-fill"></div></div>
-          <div class="status-label" id="ro1-status">NORMAL</div>
+          <div class="readout-grid">
+            <div class="ro"><span>Ampacity</span><b id="ro1-amps">– A</b></div>
+            <div class="ro"><span>MVA limit</span><b id="ro1-mva">– MVA</b></div>
+            <div class="ro"><span>Cond. temp</span><b id="ro1-temp">– °C</b></div>
+            <div class="ro"><span>Sag</span><b id="ro1-sag">– m</b></div>
+            <div class="ro"><span>Clearance</span><b id="ro1-clear">– m</b></div>
+          </div>
         </div>
 
         <div class="readout-card" data-circuit="2">
-          <div class="readout-title"><span class="swatch swatch-2"></span>Circuit 2</div>
-          <div class="readout-grid">
-            <div class="ro"><span>Ampacity limit</span><b id="ro2-amps">– A</b></div>
-            <div class="ro"><span>MVA limit</span><b id="ro2-mva">– MVA</b></div>
-            <div class="ro"><span>Loading</span><b id="ro2-load">– %</b></div>
-            <div class="ro"><span>Conductor temp</span><b id="ro2-temp">– °C</b></div>
-            <div class="ro"><span>Midspan sag</span><b id="ro2-sag">– m</b></div>
-            <div class="ro"><span>Ground clearance</span><b id="ro2-clear">– m</b></div>
+          <div class="readout-main">
+            <div class="gauge">
+              <svg viewBox="0 0 80 80">
+                <circle cx="40" cy="40" r="34" class="gauge-track" />
+                <circle cx="40" cy="40" r="34" class="gauge-arc" id="ro2-gauge" />
+              </svg>
+              <div class="gauge-center">
+                <b id="ro2-load">–</b>
+                <span>load</span>
+              </div>
+            </div>
+            <div class="readout-side">
+              <div class="readout-title"><span class="swatch swatch-2"></span>Circuit 2</div>
+              <div class="status-label" id="ro2-status">NORMAL</div>
+              <div class="status-bar"><div class="status-fill" id="ro2-fill"></div></div>
+            </div>
           </div>
-          <div class="status-bar"><div class="status-fill" id="ro2-fill"></div></div>
-          <div class="status-label" id="ro2-status">NORMAL</div>
+          <div class="readout-grid">
+            <div class="ro"><span>Ampacity</span><b id="ro2-amps">– A</b></div>
+            <div class="ro"><span>MVA limit</span><b id="ro2-mva">– MVA</b></div>
+            <div class="ro"><span>Cond. temp</span><b id="ro2-temp">– °C</b></div>
+            <div class="ro"><span>Sag</span><b id="ro2-sag">– m</b></div>
+            <div class="ro"><span>Clearance</span><b id="ro2-clear">– m</b></div>
+          </div>
         </div>
 
         <div class="readout-card corridor-summary">
           <div class="readout-title">Corridor totals</div>
+          <div class="summary-hero">
+            <div class="summary-metric">
+              <b id="ro-total-flow">–</b>
+              <span>scheduled MW</span>
+            </div>
+            <div class="summary-divider"></div>
+            <div class="summary-metric">
+              <b id="ro-total-limit">–</b>
+              <span>DLR limit MVA</span>
+            </div>
+          </div>
           <div class="readout-grid">
-            <div class="ro"><span>Total scheduled flow</span><b id="ro-total-flow">– MW</b></div>
-            <div class="ro"><span>Total thermal limit</span><b id="ro-total-limit">– MVA</b></div>
             <div class="ro"><span>Static (worst-case) rating</span><b id="ro-static">– MVA</b></div>
-            <div class="ro"><span>DLR headroom vs static</span><b id="ro-headroom">– %</b></div>
+            <div class="ro ro-wide"><span>DLR headroom vs static</span><b id="ro-headroom">– %</b></div>
           </div>
         </div>
       </section>
